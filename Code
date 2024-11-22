@@ -1,0 +1,39 @@
+WITH monthly_sales AS (
+  SELECT
+    FORMAT_TIMESTAMP('%Y-%m', orders.created_at) AS order_month,
+    products.id AS product_id,
+    products.name AS product_name,
+    SUM(orders.num_of_item) AS total_quantity_sold,
+    SUM(order_items.sale_price * orders.num_of_item) AS total_sales
+
+    FROM `bigquery-public-data.thelook_ecommerce.orders` AS orders
+    JOIN `bigquery-public-data.thelook_ecommerce.order_items` AS order_items
+    ON orders.order_id = order_items.order_id
+    JOIN `bigquery-public-data.thelook_ecommerce.products` AS products
+    ON order_items.product_id = products.id
+
+    GROUP BY
+      order_month, products.id, products.name
+),
+top_products AS (
+  SELECT
+    order_month,
+    product_id,
+    product_name,
+    total_quantity_sold,
+    total_sales,
+    RANK()OVER(PARTITION BY order_month ORDER BY total_sales DESC) AS rank
+  FROM monthly_sales
+)
+SELECT
+  order_month,
+  product_id,
+  product_name,
+  total_quantity_sold,
+  total_sales
+FROM
+  top_products
+WHERE
+  rank = 1
+
+ORDER BY order_month DESC;
